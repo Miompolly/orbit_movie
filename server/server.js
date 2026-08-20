@@ -1,0 +1,24 @@
+import app from './app.js';
+import { PORT } from './config/constants.js';
+import { readDb } from './models/Store.js';
+import { setPublicUrl } from './config/publicUrl.js';
+
+readDb();
+
+async function startNgrok() {
+  try {
+    const ngrok = await import('@ngrok/ngrok');
+    const listener = await ngrok.forward({ addr: PORT, authtoken_from_env: true });
+    const url = listener.url();
+    setPublicUrl(url);
+    console.log(`ngrok tunnel: ${url}`);
+  } catch (err) {
+    console.warn('ngrok failed (set NGROK_AUTHTOKEN env var):', err.message);
+  }
+}
+
+startNgrok();
+
+app.listen(PORT, () => {
+  console.log(`EASTER Stream API running on http://localhost:${PORT}`);
+});

@@ -1,0 +1,19 @@
+import { Router } from 'express';
+import { MovieController } from '../controllers/movieController.js';
+import { CommentController } from '../controllers/commentController.js';
+import { optionalAuth, requireAdmin } from '../middleware/auth.js';
+
+const router = Router();
+router.get('/', MovieController.list);
+router.get('/categories', MovieController.categories);
+router.get('/narrators', MovieController.narrators);
+router.get('/:id/comments', CommentController.listMovie);
+router.post('/:id/comments', optionalAuth, CommentController.createMovie);
+router.post('/:id/comments/:commentId/like', optionalAuth, CommentController.like);
+router.post('/:id/comments/:commentId/pin', requireAdmin, CommentController.pin);
+router.post('/seed', MovieController.seed);
+router.get('/:id', MovieController.show);
+router.post('/', requireAdmin, MovieController.create);
+router.put('/:id', requireAdmin, MovieController.update);
+router.delete('/:id', requireAdmin, MovieController.remove);
+export default router;
