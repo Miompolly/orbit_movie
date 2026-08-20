@@ -1,21 +1,15 @@
-import { readDb, updateDb } from './Store.js';
+import { query } from '../db.js';
 
 export const CartModel = {
-  get(userId) {
-    const db = readDb();
-    const cart = (db.carts || []).find((item) => item.userId === userId);
-    return cart ? cart.items : {};
+  async get(userId) {
+    const { rows } = await query('SELECT items FROM carts WHERE user_id = $1', [userId]);
+    return rows[0]?.items || {};
   },
-  save(userId, items) {
-    return updateDb((db) => {
-      if (!Array.isArray(db.carts)) db.carts = [];
-      const index = db.carts.findIndex((item) => item.userId === userId);
-      if (index >= 0) {
-        db.carts[index].items = items;
-      } else {
-        db.carts.push({ userId, items });
-      }
-      return items;
-    });
+  async save(userId, items) {
+    await query(
+      'INSERT INTO carts (user_id, items) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET items = $2',
+      [userId, JSON.stringify(items)]
+    );
+    return items;
   }
 };

@@ -346,32 +346,18 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
           {isSeries ? (
             <div className="bg-black rounded-[4px] overflow-hidden shrink-0">
               {currentVideoUrl ? (
-                isExternalUrl(currentRawUrl) ? (
-                  <div className="relative aspect-video">
-                    <img src={movie.backdropUrl || movie.imageUrl} alt={movie.title} className="w-full h-full object-cover" />
-                    <span className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <button onClick={() => window.open(currentRawUrl, '_blank')} className="w-16 h-16 rounded-full bg-bYellow/90 hover:bg-bYellow flex items-center justify-center transition-transform hover:scale-105">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-black ml-1" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                        </svg>
-                      </button>
-                    </span>
-                    <span className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-white/70 bg-black/60 rounded px-2 py-0.5">Opens in new tab</span>
-                  </div>
-                ) : (
-                  <video
-                    ref={videoRef}
-                    key={`${movie.id}-ep-${activeEpisodeIndex}`}
-                    src={currentVideoUrl}
-                    className="w-full aspect-video object-cover"
-                    controls
-                    autoPlay
-                    playsInline
-                    onLoadedData={onVideoLoaded}
-                    onTimeUpdate={onVideoTimeUpdate}
-                    onEnded={onVideoEnded}
-                  />
-                )
+                <video
+                  ref={videoRef}
+                  key={`${movie.id}-ep-${activeEpisodeIndex}`}
+                  src={currentVideoUrl}
+                  className="w-full aspect-video object-cover"
+                  controls
+                  autoPlay
+                  playsInline
+                  onLoadedData={onVideoLoaded}
+                  onTimeUpdate={onVideoTimeUpdate}
+                  onEnded={onVideoEnded}
+                />
               ) : (
                 <img src={movie.backdropUrl || movie.imageUrl} alt={movie.title} className="w-full aspect-video object-cover" />
               )}
@@ -379,31 +365,17 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
           ) : (
             <div className="relative aspect-video overflow-hidden rounded-[4px] bg-black shrink-0">
               {isWatching ? (
-                isExternalUrl(rawVideoUrl) ? (
-                  <>
-                    <img src={movie.backdropUrl || movie.imageUrl} alt={movie.title} className="h-full w-full object-cover" />
-                    <span className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <button onClick={() => window.open(rawVideoUrl, '_blank')} className="w-16 h-16 rounded-full bg-bYellow/90 hover:bg-bYellow flex items-center justify-center transition-transform hover:scale-105">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-black ml-1" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                        </svg>
-                      </button>
-                    </span>
-                    <span className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-white/70 bg-black/60 rounded px-2 py-0.5 z-30">Opens in new tab</span>
-                  </>
-                ) : (
-                  <video
-                    ref={videoRef}
-                    key={`${movie.id}-watch`}
-                    src={videoUrl}
-                    className="h-full w-full object-cover"
-                    controls
-                    autoPlay
-                    playsInline
-                    muted={!isWatching}
-                    poster={movie.backdropUrl}
-                  />
-                )
+                <video
+                  ref={videoRef}
+                  key={`${movie.id}-watch`}
+                  src={videoUrl}
+                  className="h-full w-full object-cover"
+                  controls
+                  autoPlay
+                  playsInline
+                  onTimeUpdate={onVideoTimeUpdate}
+                  poster={movie.backdropUrl}
+                />
               ) : (
                 <>
                   <img src={movie.backdropUrl || movie.imageUrl} alt={movie.title} className="h-full w-full object-cover" />

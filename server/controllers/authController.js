@@ -2,11 +2,16 @@ import bcrypt from 'bcryptjs';
 import { ADMIN_SEED } from '../config/constants.js';
 import { signToken } from '../middleware/auth.js';
 import { OrderModel } from '../models/Order.js';
-import { publicUser } from '../models/Store.js';
 import { UserModel } from '../models/User.js';
 
+const publicUser = (user) => {
+  if (!user) return null;
+  const { password, ...safe } = user;
+  return safe;
+};
+
 export const AuthController = {
-  register(req, res) {
+  async register(req, res) {
     const { name, email, password } = req.body || {};
     if (!name?.trim() || !email?.trim() || !password) {
       return res.status(400).json({ error: 'Fill in all fields.' });
@@ -15,22 +20,23 @@ export const AuthController = {
     if (normalized === ADMIN_SEED.email) {
       return res.status(400).json({ error: 'This email is reserved for admin.' });
     }
-    if (UserModel.findByEmail(normalized)) {
+    const existing = await UserModel.findByEmail(normalized);
+    if (existing) {
       return res.status(400).json({ error: 'An account with this email already exists.' });
     }
-    const user = UserModel.create({ name, email: normalized, password });
+    const user = await UserModel.create({ name, email: normalized, password });
     const token = signToken(user);
     res.status(201).json({ token, user });
   },
 
-  login(req, res) {
+  async login(req, res) {
     const { email, password } = req.body || {};
-    const account = UserModel.findByEmail(email);
+    const account = await UserModel.findByEmail(email);
     if (!account || !bcrypt.compareSync(String(password || ''), account.password)) {
       return res.status(401).json({ error: 'Wrong email or password.' });
     }
     const user = publicUser(account);
-    OrderModel.attachUser(user.email, user.id);
+    await OrderModel.attachUser(user.email, user.id);
     res.json({ token: signToken(account), user });
   },
 
@@ -38,9 +44,9 @@ export const AuthController = {
     res.json({ user: req.user });
   },
 
-  updateMe(req, res) {
+  async updateMe(req, res) {
     if (!req.user) return res.status(401).json({ error: 'Sign in required.' });
-    const user = UserModel.update(req.user.id, {
+    const user = await UserModel.update(req.user.id, {
       name: req.body?.name,
       isVip: req.body?.isVip,
       shipping: req.body?.shipping
@@ -48,7 +54,7 @@ export const AuthController = {
     res.json({ user });
   },
 
-  changePassword(req, res) {
+  async changePassword(req, res) {
     if (!req.user) return res.status(401).json({ error: 'Sign in required.' });
     const { currentPassword, newPassword } = req.body || {};
     if (!currentPassword || !newPassword) {
@@ -57,14 +63,15 @@ export const AuthController = {
     if (String(newPassword).length < 6) {
       return res.status(400).json({ error: 'New password must be at least 6 characters.' });
     }
-    const result = UserModel.changePassword(req.user.id, currentPassword, newPassword);
+    const result = await UserModel.changePassword(req.user.id, currentPassword, newPassword);
     if (result.error) {
       return res.status(400).json({ error: result.error });
     }
     res.json({ ok: true });
   },
 
-  users(_req, res) {
-    res.json(UserModel.all().map(publicUser));
+  async users(_req, res) {
+    const all = await UserModel.all();
+    res.json(all.map(publicUser));
   }
 };

@@ -31,6 +31,7 @@ export interface Movie {
   track?: 'agasobanuye' | 'original';
   franchise?: string;
   part?: number;
+  type?: string;
 }
 
 export interface Category {

@@ -968,6 +968,20 @@ const ShopAdminPage: React.FC<ShopAdminPageProps> = ({
                           <span className="text-[10px] text-bTextSecondary">{movie.duration || ''}</span>
                         </div>
                         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-bGray/50">
+                          {movie.videoUrl && (
+                            <div className="w-full mb-2">
+                              <a
+                                href={movie.videoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[9px] text-bYellow/70 hover:text-bYellow truncate block max-w-full"
+                                title={movie.videoUrl}
+                              >
+                                {movie.videoUrl.length > 40 ? movie.videoUrl.substring(0, 40) + '...' : movie.videoUrl}
+                              </a>
+                            </div>
+                          )}
                           <button
                             onClick={(e) => { e.stopPropagation(); navigate(`/admin/movie/edit-movie/${movie.id}`); }}
                             className="flex-1 flex items-center justify-center gap-1 bg-bGray/30 hover:bg-bYellow/20 text-bTextSecondary hover:text-bYellow text-xs font-bold py-1.5 rounded transition-colors"
@@ -993,6 +1007,7 @@ const ShopAdminPage: React.FC<ShopAdminPageProps> = ({
                     <thead className="bg-bGray/20 text-xs uppercase text-bTextSecondary font-bold border-b border-bGray">
                       <tr>
                         <th className="px-6 py-4">Movie</th>
+                        <th className="px-6 py-4">Video URL</th>
                         <th className="px-6 py-4">Genres</th>
                         <th className="px-6 py-4">Track</th>
                         <th className="px-6 py-4">Region</th>
@@ -1014,6 +1029,13 @@ const ShopAdminPage: React.FC<ShopAdminPageProps> = ({
                                 {movie.trending && <span className="text-[10px] text-bRed font-bold uppercase">Trending</span>}
                               </div>
                             </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <a href={movie.videoUrl || '#'} target="_blank" rel="noopener noreferrer"
+                              className="text-[11px] text-bYellow/70 hover:text-bYellow truncate block max-w-[180px]"
+                              title={movie.videoUrl || ''}>
+                              {movie.videoUrl ? (movie.videoUrl.length > 35 ? movie.videoUrl.substring(0, 35) + '...' : movie.videoUrl) : '—'}
+                            </a>
                           </td>
                           <td className="px-6 py-4 text-sm text-bText">{(movie.genre || []).slice(0, 2).join(', ')}</td>
                           <td className="px-6 py-4">

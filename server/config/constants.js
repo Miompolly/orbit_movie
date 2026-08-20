@@ -1,5 +1,5 @@
 export const PORT = Number(process.env.PORT) || 5000;
-export const JWT_SECRET = process.env.JWT_SECRET || 'easter-stream-dev-secret';
+export const JWT_SECRET = process.env.JWT_SECRET;
 export const FREE_DELIVERY_MIN = 5;
 export const DELIVERY_FEE = 2;
 
@@ -16,8 +16,8 @@ export const RWANDA_DISTRICTS = [
 export const ADMIN_SEED = {
   id: 'admin-1',
   name: 'EASTER Admin',
-  email: 'admin@easter.com',
-  password: 'admin123',
+  email: process.env.ADMIN_EMAIL || 'admin@easter.com',
+  password: process.env.ADMIN_PASSWORD || 'changeme',
   isVip: true,
   isAdmin: true
 };

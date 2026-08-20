@@ -12,7 +12,7 @@ router.get('/:id/comments', CommentController.listMovie);
 router.post('/:id/comments', optionalAuth, CommentController.createMovie);
 router.post('/:id/comments/:commentId/like', optionalAuth, CommentController.like);
 router.post('/:id/comments/:commentId/pin', requireAdmin, CommentController.pin);
-router.post('/seed', MovieController.seed);
+router.post('/seed', requireAdmin, MovieController.seed);
 router.get('/:id', MovieController.show);
 router.post('/', requireAdmin, MovieController.create);
 router.put('/:id', requireAdmin, MovieController.update);

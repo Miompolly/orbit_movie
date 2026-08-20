@@ -9,7 +9,8 @@ import uploadRoutes from './uploadRoutes.js';
 import proxyRoutes from './proxyRoutes.js';
 import contactRoutes from './contactRoutes.js';
 import { ADMIN_SEED, RWANDA_DISTRICTS, SELLER_PAYMENTS } from '../config/constants.js';
-import { readDb } from '../models/Store.js';
+import { MovieModel } from '../models/Movie.js';
+import { CommentModel } from '../models/Comment.js';
 import { getPublicUrl } from '../config/publicUrl.js';
 
 const SITE_URL = 'https://movieexchange.com';
@@ -25,9 +26,8 @@ router.get('/config', (_req, res) =>
   })
 );
 
-router.get('/sitemap.xml', (_req, res) => {
-  const db = readDb();
-  const movies = db.movies || [];
+router.get('/sitemap.xml', async (_req, res) => {
+  const movies = await MovieModel.all();
   const today = new Date().toISOString().split('T')[0];
 
   const staticPages = [
@@ -72,9 +72,9 @@ router.use('/upload', uploadRoutes);
 router.use('/proxy', proxyRoutes);
 router.use('/contact', contactRoutes);
 
-router.get('/comments', (_req, res) => {
-  const db = readDb();
-  res.json(db.comments || []);
+router.get('/comments', async (_req, res) => {
+  const comments = await CommentModel.all();
+  res.json(comments);
 });
 
 export default router;

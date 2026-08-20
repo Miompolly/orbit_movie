@@ -1,94 +1,83 @@
-import { readDb, updateDb } from './Store.js';
+import { query } from '../db.js';
 
-const withDefaults = (comment) => ({
-  parentId: null,
-  likedBy: [],
-  isAdmin: false,
-  pinned: false,
-  pinnedAt: null,
-  ...comment,
-  likedBy: Array.isArray(comment.likedBy) ? comment.likedBy : [],
-  pinned: Boolean(comment.pinned)
-});
-
-const byPinThenRecent = (a, b) => {
-  if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
-  const pinA = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
-  const pinB = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
-  if (pinA !== pinB) return pinB - pinA;
-  return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+const rowToComment = (row) => {
+  if (!row) return null;
+  return {
+    id: row.id,
+    movieId: row.movie_id,
+    userId: row.user_id,
+    userName: row.user_name,
+    userIsVip: row.user_is_vip,
+    isAdmin: row.is_admin,
+    text: row.text,
+    timestamp: row.timestamp,
+    parentId: row.parent_id,
+    likedBy: row.liked_by || [],
+    pinned: row.pinned,
+    pinnedAt: row.pinned_at,
+  };
 };
 
 export const CommentModel = {
-  all() {
-    return readDb().comments.map(withDefaults);
+  async all() {
+    const { rows } = await query('SELECT * FROM comments ORDER BY pinned DESC, pinned_at DESC NULLS LAST, timestamp DESC');
+    return rows.map(rowToComment);
   },
-  forMovie(movieId) {
-    return this.all().filter((item) => String(item.movieId) === String(movieId)).sort(byPinThenRecent);
+  async forMovie(movieId) {
+    const { rows } = await query(
+      'SELECT * FROM comments WHERE movie_id = $1 ORDER BY pinned DESC, pinned_at DESC NULLS LAST, timestamp DESC',
+      [String(movieId)]
+    );
+    return rows.map(rowToComment);
   },
-  findById(id) {
-    return this.all().find((item) => item.id === id) || null;
+  async findById(id) {
+    const { rows } = await query('SELECT * FROM comments WHERE id = $1', [id]);
+    return rowToComment(rows[0]) || null;
   },
-  create(fields) {
-    return updateDb((db) => {
-      const next = withDefaults({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        movieId: fields.movieId || null,
-        parentId: fields.parentId || null,
-        userId: fields.userId || 'guest',
-        userName: fields.userName || 'Guest',
-        userIsVip: Boolean(fields.userIsVip),
-        isAdmin: Boolean(fields.isAdmin),
-        text: fields.text,
-        timestamp: new Date().toISOString(),
-        likedBy: [],
-        pinned: false,
-        pinnedAt: null
-      });
-      db.comments.unshift(next);
-      return next;
-    });
+  async create(fields) {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const { rows } = await query(
+      `INSERT INTO comments (id, movie_id, user_id, user_name, user_is_vip, is_admin, text, parent_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [id, fields.movieId || null, fields.userId || 'guest', fields.userName || 'Guest',
+       fields.userIsVip || false, fields.isAdmin || false, fields.text, fields.parentId || null]
+    );
+    return rowToComment(rows[0]);
   },
-  toggleLike(id, likerId) {
-    return updateDb((db) => {
-      const comment = db.comments.find((item) => item.id === id);
-      if (!comment) return null;
-      if (!Array.isArray(comment.likedBy)) comment.likedBy = [];
-      const index = comment.likedBy.indexOf(likerId);
-      if (index >= 0) comment.likedBy.splice(index, 1);
-      else comment.likedBy.push(likerId);
-      return withDefaults(comment);
-    });
+  async toggleLike(id, likerId) {
+    const existing = await this.findById(id);
+    if (!existing) return null;
+    const liked = existing.likedBy || [];
+    const idx = liked.indexOf(likerId);
+    if (idx >= 0) liked.splice(idx, 1);
+    else liked.push(likerId);
+    const { rows } = await query('UPDATE comments SET liked_by = $1 WHERE id = $2 RETURNING *', [JSON.stringify(liked), id]);
+    return rowToComment(rows[0]);
   },
-  togglePin(id) {
-    return updateDb((db) => {
-      const comment = db.comments.find((item) => item.id === id);
-      if (!comment) return null;
-      comment.pinned = !comment.pinned;
-      comment.pinnedAt = comment.pinned ? new Date().toISOString() : null;
-      return withDefaults(comment);
-    });
+  async togglePin(id) {
+    const existing = await this.findById(id);
+    if (!existing) return null;
+    const pinned = !existing.pinned;
+    const pinnedAt = pinned ? new Date().toISOString() : null;
+    const { rows } = await query('UPDATE comments SET pinned = $1, pinned_at = $2 WHERE id = $3 RETURNING *', [pinned, pinnedAt, id]);
+    return rowToComment(rows[0]);
   }
 };
 
 export const WishlistModel = {
-  forUser(userId) {
-    return readDb().wishlists.filter((item) => item.userId === userId).map((item) => item.movie);
+  async forUser(userId) {
+    const { rows } = await query('SELECT movie FROM wishlists WHERE user_id = $1', [userId]);
+    return rows.map((r) => r.movie);
   },
-  add(userId, movie) {
-    return updateDb((db) => {
-      if (!db.wishlists.some((item) => item.userId === userId && item.movieId === movie.id)) {
-        db.wishlists.push({ userId, movieId: movie.id, movie });
-      }
-      return db.wishlists.filter((item) => item.userId === userId).map((item) => item.movie);
-    });
+  async add(userId, movie) {
+    await query(
+      'INSERT INTO wishlists (user_id, movie_id, movie) VALUES ($1, $2, $3) ON CONFLICT (user_id, movie_id) DO NOTHING',
+      [userId, movie.id, JSON.stringify(movie)]
+    );
+    return this.forUser(userId);
   },
-  remove(userId, movieId) {
-    return updateDb((db) => {
-      db.wishlists = db.wishlists.filter(
-        (item) => !(item.userId === userId && String(item.movieId) === String(movieId))
-      );
-      return db.wishlists.filter((item) => item.userId === userId).map((item) => item.movie);
-    });
+  async remove(userId, movieId) {
+    await query('DELETE FROM wishlists WHERE user_id = $1 AND movie_id = $2', [userId, movieId]);
+    return this.forUser(userId);
   }
 };

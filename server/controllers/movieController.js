@@ -2,45 +2,50 @@ import { MovieModel } from '../models/Movie.js';
 import { buildCategories, buildNarrators, buildMovieSeed } from '../config/movieBuilder.js';
 
 export const MovieController = {
-  list(_req, res) {
-    res.json(MovieModel.all());
+  async list(_req, res) {
+    res.json(await MovieModel.all());
   },
-  search(req, res) {
+  async search(req, res) {
     const q = req.query.q || '';
-    res.json(MovieModel.search(q));
+    res.json(await MovieModel.search(q));
   },
-  categories(_req, res) {
-    res.json(buildCategories(MovieModel.all()));
+  async categories(_req, res) {
+    const movies = await MovieModel.all();
+    res.json(buildCategories(movies));
   },
-  narrators(_req, res) {
-    res.json(buildNarrators(MovieModel.all()));
+  async narrators(_req, res) {
+    const movies = await MovieModel.all();
+    res.json(buildNarrators(movies));
   },
-  show(req, res) {
-    const movie = MovieModel.findById(req.params.id);
+  async show(req, res) {
+    const movie = await MovieModel.findById(req.params.id);
     if (!movie) return res.status(404).json({ error: 'Movie not found.' });
     res.json(movie);
   },
-  seed(_req, res) {
+  async seed(_req, res) {
     const movies = buildMovieSeed();
-    const saved = MovieModel.seed(movies);
-    const series = saved.filter((item) => item.genre?.includes('Series') || item.genre?.includes('TV Show')).length;
+    const saved = await MovieModel.seed(movies);
+    const allMovies = await MovieModel.all();
+    const series = allMovies.filter((item) => item.genre?.includes('Series') || item.genre?.includes('TV Show')).length;
     res.json({
       ok: true,
-      movies: saved.length - series,
+      movies: saved,
       series,
-      total: saved.length
+      total: allMovies.length
     });
   },
-  create(req, res) {
-    res.status(201).json(MovieModel.create(req.body));
+  async create(req, res) {
+    const movie = await MovieModel.create(req.body);
+    res.status(201).json(movie);
   },
-  update(req, res) {
-    const movie = MovieModel.update(req.params.id, req.body);
+  async update(req, res) {
+    const movie = await MovieModel.update(req.params.id, req.body);
     if (!movie) return res.status(404).json({ error: 'Movie not found.' });
     res.json(movie);
   },
-  remove(req, res) {
-    if (!MovieModel.remove(req.params.id)) return res.status(404).json({ error: 'Movie not found.' });
+  async remove(req, res) {
+    const removed = await MovieModel.remove(req.params.id);
+    if (!removed) return res.status(404).json({ error: 'Movie not found.' });
     res.json({ ok: true });
   }
 };
