@@ -4,6 +4,17 @@ export const MovieModel = {
   all() {
     return readDb().movies;
   },
+  search(query) {
+    const q = query.toLowerCase().trim();
+    if (!q) return this.all();
+    return this.all().filter((m) => {
+      const title = (m.title || '').toLowerCase();
+      const genre = (m.genre || []).join(' ').toLowerCase();
+      const region = (m.region || '').toLowerCase();
+      const description = (m.description || m.overview || '').toLowerCase();
+      return title.includes(q) || genre.includes(q) || region.includes(q) || description.includes(q);
+    });
+  },
   findById(id) {
     return this.all().find((item) => String(item.id) === String(id)) || null;
   },

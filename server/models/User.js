@@ -34,5 +34,18 @@ export const UserModel = {
       if (patch.shipping != null) user.shipping = patch.shipping;
       return publicUser(user);
     });
+  },
+  changePassword(id, oldPassword, newPassword) {
+    const user = this.all().find((item) => item.id === id);
+    if (!user) return { error: 'User not found.' };
+    if (!bcrypt.compareSync(String(oldPassword || ''), user.password)) {
+      return { error: 'Current password is incorrect.' };
+    }
+    return updateDb((db) => {
+      const u = db.users.find((item) => item.id === id);
+      if (!u) return { error: 'User not found.' };
+      u.password = bcrypt.hashSync(newPassword, 10);
+      return { ok: true };
+    });
   }
 };

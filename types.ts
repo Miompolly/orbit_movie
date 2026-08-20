@@ -29,6 +29,8 @@ export interface Movie {
   freeEpisodeCount?: number;
   isFree?: boolean;
   track?: 'agasobanuye' | 'original';
+  franchise?: string;
+  part?: number;
 }
 
 export interface Category {

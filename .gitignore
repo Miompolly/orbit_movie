@@ -3,3 +3,5 @@ server/data
 server/data/db.json
 dist
 .DS_Store
+
+.env.local

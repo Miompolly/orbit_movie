@@ -25,6 +25,13 @@ const UserProfile: React.FC<UserProfileProps> = ({
   const [email, setEmail] = useState(user?.email || '');
   const [isEditing, setIsEditing] = useState(false);
   const [showSubSuccess, setShowSubSuccess] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   if (!user) {
     return (
@@ -63,6 +70,37 @@ const UserProfile: React.FC<UserProfileProps> = ({
     if (onSubscribeVIP()) {
       setShowSubSuccess(true);
       window.setTimeout(() => setShowSubSuccess(false), 4000);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+    if (!currentPassword || !newPassword) {
+      setPasswordError('Fill in all fields.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match.');
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      await movieApi.changePassword(currentPassword, newPassword);
+      setPasswordSuccess('Password changed successfully.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => { setPasswordSuccess(''); setShowPasswordForm(false); }, 2000);
+    } catch (err: any) {
+      setPasswordError(err?.message || 'Failed to change password.');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -152,6 +190,60 @@ const UserProfile: React.FC<UserProfileProps> = ({
             )}
             {showSubSuccess && <p className="mt-3 text-xs font-bold text-bYellow">You are now VIP.</p>}
           </section>
+        </div>
+
+        <div className="border-b border-white/10 px-5 py-5 sm:px-7">
+          <button
+            type="button"
+            onClick={() => { setShowPasswordForm(!showPasswordForm); setPasswordError(''); setPasswordSuccess(''); }}
+            className="flex items-center gap-2 text-sm font-bold text-bYellow hover:underline"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            {showPasswordForm ? 'Close' : 'Change Password'}
+          </button>
+          {showPasswordForm && (
+            <form onSubmit={handleChangePassword} className="mt-4 space-y-3 animate-fade-in">
+              {passwordError && (
+                <div className="rounded-[4px] border border-bRed/40 bg-bRed/10 px-3 py-2 text-xs text-bRed">{passwordError}</div>
+              )}
+              {passwordSuccess && (
+                <div className="rounded-[4px] border border-bGreen/40 bg-bGreen/10 px-3 py-2 text-xs text-bGreen">{passwordSuccess}</div>
+              )}
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Current password"
+                className="w-full rounded-[4px] border border-white/15 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/30 focus:border-bYellow focus:outline-none"
+                required
+              />
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="New password (min 6 characters)"
+                className="w-full rounded-[4px] border border-white/15 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/30 focus:border-bYellow focus:outline-none"
+                required
+              />
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+                className="w-full rounded-[4px] border border-white/15 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/30 focus:border-bYellow focus:outline-none"
+                required
+              />
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className="rounded-[4px] bg-bYellow px-4 py-2 text-xs font-bold text-black hover:bg-bYellowHover disabled:opacity-50"
+              >
+                {passwordLoading ? 'Saving...' : 'Update Password'}
+              </button>
+            </form>
+          )}
         </div>
 
         {rentedMovies.length > 0 && (

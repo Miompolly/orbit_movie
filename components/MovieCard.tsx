@@ -15,6 +15,7 @@ const MovieCard: React.FC<MovieCardProps> = ({ movie, onSelect, className = '', 
   const region = movie.region || 'International';
   const duration = movie.duration || '—';
   const rating = Number.isFinite(movie.rating) ? movie.rating.toFixed(1) : '0.0';
+  const displayTitle = movie.franchise && movie.part ? movie.title.replace(/\s*-\s*Part\s*\d+$/i, '').trim() : movie.title;
   const partsCount = movie.episodes?.length || 1;
   const isEpisodeShow =
     movie.genre?.some((g) => /series|tv show/i.test(g)) ||
@@ -165,7 +166,7 @@ const MovieCard: React.FC<MovieCardProps> = ({ movie, onSelect, className = '', 
           {region}
         </p>
         <h3 className="mt-0.5 line-clamp-1 text-[13px] font-semibold leading-snug tracking-tight text-white transition-colors duration-200 group-hover:text-bYellow">
-          {movie.title}
+          {displayTitle}
         </h3>
         <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-bTextSecondary">
           <span className="truncate">{genre}</span>

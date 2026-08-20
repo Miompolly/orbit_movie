@@ -23,6 +23,8 @@ export const api = {
   users: () => request<User[]>('/auth/users'),
   updateMe: (patch: Partial<User>) =>
     request<{ user: User }>('/auth/me', { method: 'PUT', body: JSON.stringify(patch) }).then((data) => data.user),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ ok: boolean }>('/auth/password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
 
   // Products (admin)
   products: () => request<Product[]>('/products'),
@@ -70,6 +72,7 @@ export const api = {
   // Config
   config: () => request<{ districts: string[]; adminEmail: string }>('/config'),
   categories: () => request<import('../types').Category[]>('/movies/categories'),
+  searchMovies: (query: string) => request<Movie[]>(`/movies/search?q=${encodeURIComponent(query)}`),
   narrators: () => request<{ name: string; count: number }[]>('/movies/narrators'),
   movie: (id: number) => request<Movie>(`/movies/${id}`),
   createMovie: (movie: Partial<Movie>) =>
@@ -95,5 +98,9 @@ export const api = {
       { method: 'POST', body: formData }
     );
     return data;
-  }
+  },
+
+  // Contact
+  sendContact: (payload: { name: string; email: string; message: string }) =>
+    request<{ ok: boolean }>('/contact', { method: 'POST', body: JSON.stringify(payload) }),
 };

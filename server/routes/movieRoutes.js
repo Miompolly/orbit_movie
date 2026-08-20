@@ -5,6 +5,7 @@ import { optionalAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
 router.get('/', MovieController.list);
+router.get('/search', MovieController.search);
 router.get('/categories', MovieController.categories);
 router.get('/narrators', MovieController.narrators);
 router.get('/:id/comments', CommentController.listMovie);

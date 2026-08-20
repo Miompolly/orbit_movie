@@ -1,6 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api as movieApi } from '../services/shopApi';
 
 interface FooterProps {
   onNavigate?: (tab: string) => void;
@@ -10,6 +11,27 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   const navigate = useNavigate();
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactMessage, setContactMessage] = useState('');
+  const [contactStatus, setContactStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactName.trim() || !contactEmail.trim() || !contactMessage.trim()) return;
+    setContactStatus('sending');
+    try {
+      await movieApi.sendContact({ name: contactName, email: contactEmail, message: contactMessage });
+      setContactStatus('sent');
+      setContactName('');
+      setContactEmail('');
+      setContactMessage('');
+      setTimeout(() => setContactStatus('idle'), 3000);
+    } catch {
+      setContactStatus('error');
+      setTimeout(() => setContactStatus('idle'), 3000);
+    }
+  };
 
   const handleClick = (tab: string, path: string) => (e: React.MouseEvent) => {
     e.preventDefault();
@@ -66,27 +88,34 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
           <div>
             <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-bTextSecondary">Contact Us</h4>
-            <form onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-2">
+            <form onSubmit={handleContactSubmit} className="flex flex-col gap-2">
               <input
                 type="text"
                 placeholder="Name"
+                value={contactName}
+                onChange={(e) => setContactName(e.target.value)}
                 className="bg-bDark border border-bGray rounded px-3 py-2 text-xs text-white placeholder-bTextSecondary focus:outline-none focus:border-bYellow"
               />
               <input
                 type="email"
                 placeholder="Email"
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
                 className="bg-bDark border border-bGray rounded px-3 py-2 text-xs text-white placeholder-bTextSecondary focus:outline-none focus:border-bYellow"
               />
               <textarea
                 placeholder="Message"
                 rows={2}
+                value={contactMessage}
+                onChange={(e) => setContactMessage(e.target.value)}
                 className="bg-bDark border border-bGray rounded px-3 py-2 text-xs text-white placeholder-bTextSecondary focus:outline-none focus:border-bYellow resize-none"
               />
               <button
                 type="submit"
-                className="bg-bYellow hover:bg-bYellowHover text-black font-bold px-4 py-2 rounded text-xs transition-colors w-fit"
+                disabled={contactStatus === 'sending'}
+                className="bg-bYellow hover:bg-bYellowHover text-black font-bold px-4 py-2 rounded text-xs transition-colors w-fit disabled:opacity-50"
               >
-                Send
+                {contactStatus === 'sending' ? 'Sending...' : contactStatus === 'sent' ? 'Sent!' : contactStatus === 'error' ? 'Failed' : 'Send'}
               </button>
             </form>
           </div>

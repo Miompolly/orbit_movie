@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { User } from '../types';
-import { ADMIN_ACCOUNT } from '../services/authService';
 import { api as movieApi } from '../services/shopApi';
 
 interface AuthPageProps {
@@ -21,7 +20,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
 
   const goAfterAuth = (user: User) => {
     const next = user.isAdmin
-      ? '/admin'
+      ? '/admin/movie'
       : from && from !== '/login' && from !== '/register'
         ? from
         : '/';
@@ -100,14 +99,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
           {loading ? 'Please wait...' : isLogin ? 'Log In' : 'Register'}
         </button>
       </form>
-
-      {isLogin ? (
-        <div className="mt-4 rounded-[4px] border border-white/10 bg-[#1c1c1c] px-4 py-3 text-xs text-white/60">
-          <p className="font-semibold text-bYellow">Admin user</p>
-          <p className="mt-1 font-mono text-white">{ADMIN_ACCOUNT.email}</p>
-          <p className="font-mono text-white">Password: {ADMIN_ACCOUNT.password}</p>
-        </div>
-      ) : null}
 
       <p className="mt-6 text-center text-sm text-white/50">
         {isLogin ? 'Not registered yet? ' : 'Already have an account? '}

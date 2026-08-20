@@ -5,6 +5,10 @@ export const MovieController = {
   list(_req, res) {
     res.json(MovieModel.all());
   },
+  search(req, res) {
+    const q = req.query.q || '';
+    res.json(MovieModel.search(q));
+  },
   categories(_req, res) {
     res.json(buildCategories(MovieModel.all()));
   },

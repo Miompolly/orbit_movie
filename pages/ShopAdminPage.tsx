@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Movie, User, ShopOrder, Category, Comment, Episode } from '../types';
 import { formatFrw, statusLabel } from '../services/shopService';
 import { api as movieApi } from '../services/shopApi';
@@ -21,6 +21,7 @@ interface ShopAdminPageProps {
   onLogout: () => void;
   onUpdateOrder: (order: ShopOrder) => void;
   onUpdateMovie?: (movie: Movie) => void;
+  onDeleteMovie?: (id: number) => void;
 }
 
 type AdminTab = 'overview' | 'orders' | 'movies' | 'reports' | 'customers' | 'support';
@@ -52,15 +53,24 @@ const ShopAdminPage: React.FC<ShopAdminPageProps> = ({
   onOpenAuth,
   onLogout,
   onUpdateOrder,
-  onUpdateMovie
+  onUpdateMovie,
+  onDeleteMovie
 }) => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const { tab } = useParams<{ tab?: string }>();
+  const [activeTab, setActiveTab] = useState<AdminTab>((tab as AdminTab) || 'overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (tab && ['overview', 'orders', 'movies', 'reports', 'customers', 'support'].includes(tab)) {
+      setActiveTab(tab as AdminTab);
+    }
+  }, [tab]);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [orderFilter, setOrderFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [movieSearch, setMovieSearch] = useState('');
+  const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [movieGenreFilter, setMovieGenreFilter] = useState('All');
   const [movieTrackFilter, setMovieTrackFilter] = useState<'all' | 'agasobanuye' | 'original'>('all');
   const [movieViewMode, setMovieViewMode] = useState<'grid' | 'table'>('grid');
@@ -131,6 +141,13 @@ const ShopAdminPage: React.FC<ShopAdminPageProps> = ({
   const handleUpdateOrderStatus = (order: ShopOrder, status: ShopOrder['status']) => {
     onUpdateOrder({ ...order, status });
     showToast(`Order #${order.id} -> ${statusLabel(status)}`);
+  };
+
+  const handleDeleteMovieConfirm = (movie: Movie) => {
+    if (!onDeleteMovie) return;
+    if (!window.confirm(`Delete "${movie.title}"? This cannot be undone.`)) return;
+    onDeleteMovie(movie.id);
+    showToast(`Deleted "${movie.title}"`);
   };
 
   const filteredOrders = orders.filter(o => {
@@ -282,7 +299,7 @@ const ShopAdminPage: React.FC<ShopAdminPageProps> = ({
   }, [movies]);
 
   const filteredMovies = useMemo(() => {
-    let list = movies;
+    let list = movies.filter(m => !m.franchise || m.part === 1 || !m.part);
     if (movieSearch) {
       const q = movieSearch.toLowerCase();
       list = list.filter(m => m.title.toLowerCase().includes(q) || m.genre?.some(g => g.toLowerCase().includes(q)));
@@ -360,7 +377,7 @@ const ShopAdminPage: React.FC<ShopAdminPageProps> = ({
           {tabs.map(item => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => navigate(`/admin/movie/${item.id}`)}
               className={`flex items-center gap-3 px-4 py-3.5 border-l-4 transition-all hover:bg-bGray/10 ${activeTab === item.id ? 'border-bYellow text-bYellow bg-bGray/10' : 'border-transparent text-bTextSecondary hover:text-white'} ${sidebarCollapsed ? 'justify-center px-2' : ''}`}
               title={item.label}
             >
@@ -417,25 +434,57 @@ const ShopAdminPage: React.FC<ShopAdminPageProps> = ({
 
             <div className="h-6 w-px bg-bGray/40" />
 
-            <div className="flex items-center gap-2 bg-bBlack/40 border border-bGray/40 rounded-lg px-3 py-1.5">
-              <div className="h-7 w-7 rounded-full bg-bYellow/20 border border-bYellow/40 flex items-center justify-center">
-                <span className="text-xs font-bold text-bYellow">{user?.name?.charAt(0) || 'A'}</span>
-              </div>
-              <div className="hidden sm:block">
-                <div className="text-xs font-medium text-white leading-none">{user?.name || 'Admin'}</div>
-                <div className="text-[9px] text-bTextSecondary leading-none mt-0.5">{user?.email || ''}</div>
-              </div>
+            <div className="relative">
+              <button
+                onClick={() => setShowAdminMenu(!showAdminMenu)}
+                className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded-lg hover:bg-bGray/30 transition-colors"
+              >
+                <div className="h-7 w-7 rounded-full bg-bYellow/20 border border-bYellow/40 flex items-center justify-center">
+                  <span className="text-xs font-bold text-bYellow">{user?.name?.charAt(0) || 'A'}</span>
+                </div>
+                <div className="hidden sm:block">
+                  <div className="text-xs font-medium text-white leading-none">{user?.name || 'Admin'}</div>
+                  <div className="text-[9px] text-bTextSecondary leading-none mt-0.5">{user?.email || ''}</div>
+                </div>
+              </button>
+              {showAdminMenu && (
+                <div className="absolute top-12 right-0 bg-bDark border border-bGray text-white rounded-lg shadow-2xl py-2 w-52 animate-fade-in z-[60]">
+                  <div className="px-4 py-3 border-b border-bGray mb-2 bg-bBlack/20">
+                    <div className="text-sm font-bold truncate text-white">{user?.name || 'Admin'}</div>
+                    <div className="text-xs text-bTextSecondary truncate">{user?.email || ''}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowAdminMenu(false); }}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-bGray hover:text-bYellow transition-colors"
+                  >
+                    My Profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowAdminMenu(false); }}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-bGray hover:text-bYellow transition-colors"
+                  >
+                    My Wish List
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowAdminMenu(false); }}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-bGray hover:text-bYellow transition-colors"
+                  >
+                    Admin dashboard
+                  </button>
+                  <div className="border-t border-bGray my-2" />
+                  <button
+                    type="button"
+                    onClick={() => { onLogout(); setShowAdminMenu(false); }}
+                    className="w-full text-left px-4 py-2 text-sm text-bRed hover:bg-bGray"
+                  >
+                    Exit
+                  </button>
+                </div>
+              )}
             </div>
-
-            <button
-              onClick={onLogout}
-              className="group bg-bGray/20 hover:bg-bRed/20 text-bTextSecondary hover:text-bRed px-3 py-2 rounded-lg flex items-center gap-2 transition-all border border-transparent hover:border-bRed/30"
-            >
-              <span className="text-xs font-medium hidden sm:inline">Exit</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -754,7 +803,7 @@ const ShopAdminPage: React.FC<ShopAdminPageProps> = ({
             <div className="animate-fade-in">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-white">Movies</h2>
-                <button onClick={() => navigate('/admin/add-movie')} className="bg-bYellow text-black px-4 py-2 rounded font-bold hover:bg-bYellowHover flex items-center gap-2">
+                <button onClick={() => navigate('/admin/movie/add-movie')} className="bg-bYellow text-black px-4 py-2 rounded font-bold hover:bg-bYellowHover flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
                   </svg>
@@ -893,8 +942,8 @@ const ShopAdminPage: React.FC<ShopAdminPageProps> = ({
                   {movieViewMode === 'grid' ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {filteredMovies.map(movie => (
-                    <div key={movie.id} className="bg-bDark border border-bGray rounded-lg overflow-hidden hover:border-bYellow/50 transition-all cursor-pointer group" onClick={() => movie.type === 'series' || movie.episodes?.length ? openSeries(movie) : navigate(`/movie/${movie.id}`)}>
-                      <div className="relative aspect-[2/3] overflow-hidden">
+                    <div key={movie.id} className="bg-bDark border border-bGray rounded-lg overflow-hidden hover:border-bYellow/50 transition-all cursor-pointer group">
+                      <div className="relative aspect-[2/3] overflow-hidden" onClick={() => movie.type === 'series' || movie.episodes?.length ? openSeries(movie) : navigate(`/movie/${movie.id}`)}>
                         <img src={movie.imageUrl || movie.backdropUrl} alt={movie.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                         <div className="absolute bottom-0 left-0 right-0 p-3">
@@ -918,6 +967,22 @@ const ShopAdminPage: React.FC<ShopAdminPageProps> = ({
                           <span className="text-xs font-bold text-bGreen">{formatFrw(movie.price)}</span>
                           <span className="text-[10px] text-bTextSecondary">{movie.duration || ''}</span>
                         </div>
+                        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-bGray/50">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); navigate(`/admin/movie/edit-movie/${movie.id}`); }}
+                            className="flex-1 flex items-center justify-center gap-1 bg-bGray/30 hover:bg-bYellow/20 text-bTextSecondary hover:text-bYellow text-xs font-bold py-1.5 rounded transition-colors"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            Edit
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteMovieConfirm(movie); }}
+                            className="flex-1 flex items-center justify-center gap-1 bg-bGray/30 hover:bg-bRed/20 text-bTextSecondary hover:text-bRed text-xs font-bold py-1.5 rounded transition-colors"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -935,12 +1000,13 @@ const ShopAdminPage: React.FC<ShopAdminPageProps> = ({
                         <th className="px-6 py-4">Rating</th>
                         <th className="px-6 py-4">Price</th>
                         <th className="px-6 py-4">Duration</th>
+                        <th className="px-6 py-4 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-bGray/10">
                       {filteredMovies.map(movie => (
-                        <tr key={movie.id} className="hover:bg-bGray/10 transition-colors cursor-pointer" onClick={() => movie.type === 'series' || movie.episodes?.length ? openSeries(movie) : navigate(`/movie/${movie.id}`)}>
-                          <td className="px-6 py-4">
+                        <tr key={movie.id} className="hover:bg-bGray/10 transition-colors">
+                          <td className="px-6 py-4 cursor-pointer" onClick={() => movie.type === 'series' || movie.episodes?.length ? openSeries(movie) : navigate(`/movie/${movie.id}`)}>
                             <div className="flex items-center gap-3">
                               <img src={movie.imageUrl || movie.backdropUrl} alt="" className="w-8 h-12 rounded object-cover" />
                               <div>
@@ -960,6 +1026,22 @@ const ShopAdminPage: React.FC<ShopAdminPageProps> = ({
                           <td className="px-6 py-4 text-sm text-bYellow">{movie.rating?.toFixed(1) || '\u2014'}</td>
                           <td className="px-6 py-4 text-sm font-bold text-bGreen">{formatFrw(movie.price)}</td>
                           <td className="px-6 py-4 text-sm text-bTextSecondary">{movie.duration || '\u2014'}</td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => navigate(`/admin/movie/edit-movie/${movie.id}`)}
+                                className="px-3 py-1.5 rounded text-xs font-bold bg-bGray/30 hover:bg-bYellow/20 text-bTextSecondary hover:text-bYellow transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteMovieConfirm(movie)}
+                                className="px-3 py-1.5 rounded text-xs font-bold bg-bGray/30 hover:bg-bRed/20 text-bTextSecondary hover:text-bRed transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

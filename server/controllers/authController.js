@@ -48,6 +48,22 @@ export const AuthController = {
     res.json({ user });
   },
 
+  changePassword(req, res) {
+    if (!req.user) return res.status(401).json({ error: 'Sign in required.' });
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Both current and new password are required.' });
+    }
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+    }
+    const result = UserModel.changePassword(req.user.id, currentPassword, newPassword);
+    if (result.error) {
+      return res.status(400).json({ error: result.error });
+    }
+    res.json({ ok: true });
+  },
+
   users(_req, res) {
     res.json(UserModel.all().map(publicUser));
   }

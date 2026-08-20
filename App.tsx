@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import MovieRow from './components/MovieRow';
@@ -8,6 +8,7 @@ import AuthPage from './pages/AuthPage';
 import Footer from './components/Footer';
 import ShopAdminPage from './pages/ShopAdminPage';
 import AddMoviePage from './pages/AddMoviePage';
+import EditMoviePage from './pages/EditMoviePage';
 import UserProfile from './components/UserProfile';
 import MovieCard from './components/MovieCard';
 import MoviePage from './pages/MoviePage';
@@ -26,10 +27,13 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const isMovieRoute = location.pathname.startsWith('/movie/');
-  const isAdminRoute = location.pathname === '/admin' || location.pathname === '/admin/add-movie';
+  const isAdminRoute = location.pathname.startsWith('/admin/movie');
   const [user, setUser] = useState<User | null>(null);
   const [rentedMovies] = useState<Movie[]>([]);
   const [allMovies, setAllMovies] = useState<Movie[]>([]);
+  const displayMovies = allMovies.filter(m => !m.franchise || m.part === 1 || !m.part);
+  const filterCategoryParts = (cats: Category[]): Category[] =>
+    cats.map(c => ({ ...c, movies: c.movies.filter(m => !m.franchise || m.part === 1 || !m.part) }));
   const [categories, setCategories] = useState<Category[]>([]);
   const [apiError, setApiError] = useState('');
   const [activeTab, setActiveTab] = useState('home');
@@ -70,7 +74,7 @@ function App() {
       setActiveTab('auth');
     } else if (path === '/profile') {
       setActiveTab('profile');
-    } else if (path === '/admin') {
+    } else if (path.startsWith('/admin')) {
       setActiveTab('admin');
     }
   }, [location.pathname]);
@@ -121,7 +125,7 @@ function App() {
         ]);
         setAllMovies(movieList);
         setCategories(rows);
-        setDisplayedCategories(rows);
+        setDisplayedCategories(filterCategoryParts(rows));
         setApiError('');
         try {
           const session = await movieApi.me();
@@ -155,18 +159,18 @@ function App() {
   }, [allMovies, activeHeroMovie]);
 
   const performFilter = (filter: string): Movie[] => {
-    if (filter === 'All') return allMovies;
-    if (filter === 'Music') return allMovies.filter(m => m.genre?.includes('Music'));
+    if (filter === 'All') return displayMovies;
+    if (filter === 'Music') return displayMovies.filter(m => m.genre?.includes('Music'));
     if (filter === 'Seasons' || filter === 'Series') {
-      return allMovies.filter(m => m.type === 'series' || m.genre?.includes('Series') || m.genre?.includes('TV Show') || (m.episodes && m.episodes.length > 0));
+      return displayMovies.filter(m => m.type === 'series' || m.genre?.includes('Series') || m.genre?.includes('TV Show') || (m.episodes && m.episodes.length > 0));
     }
     if (filter === 'Romantic' || filter === 'Romance') {
-      return allMovies.filter(m => m.genre?.includes('Romantic') || m.genre?.includes('Romance'));
+      return displayMovies.filter(m => m.genre?.includes('Romantic') || m.genre?.includes('Romance'));
     }
     if (filter === 'Sci-Fi' || filter === 'Scifi') {
-      return allMovies.filter(m => m.genre?.some(g => /sci-?fi/i.test(g)));
+      return displayMovies.filter(m => m.genre?.some(g => /sci-?fi/i.test(g)));
     }
-    return allMovies.filter(m => m.genre?.includes(filter) || m.region === filter);
+    return displayMovies.filter(m => m.genre?.includes(filter) || m.region === filter);
   };
 
   useEffect(() => {
@@ -196,7 +200,7 @@ function App() {
       return;
     }
     const lower = query.toLowerCase();
-    let results = allMovies.filter(m =>
+    let results = displayMovies.filter(m =>
       m.title.toLowerCase().includes(lower) ||
       m.genre?.some(g => g.toLowerCase().includes(lower)) ||
       (m.region && m.region.toLowerCase().includes(lower))
@@ -211,6 +215,35 @@ function App() {
     setFilteredMoviesGrid(byTrack(results, activeTrack));
     setActiveFilter(category === 'All Genres' ? 'All' : category);
   };
+
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleRealtimeSearch = useCallback((query: string, category: string) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!query || query.trim().length < 2) {
+      if (query.length === 0) {
+        setActiveTab('home');
+        setActiveFilter('All');
+        navigate('/');
+      }
+      return;
+    }
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await movieApi.searchMovies(query);
+        let filtered = results;
+        if (category !== 'All Genres') {
+          const cat = category === 'Romantic' ? 'Romance' : category;
+          filtered = results.filter(m => m.genre?.some(g => g.toLowerCase() === cat.toLowerCase()));
+        }
+        setActiveTab('movies');
+        if (location.pathname !== '/movies') navigate('/movies');
+        setFilteredMoviesGrid(byTrack(filtered, activeTrack));
+        setActiveFilter(category === 'All Genres' ? 'All' : category);
+      } catch {
+        /* ignore */
+      }
+    }, 350);
+  }, [navigate, activeTrack, location.pathname]);
 
   const handleMovieSelect = (movie: Movie) => {
     navigate(`/movie/${movie.id}`);
@@ -235,7 +268,7 @@ function App() {
     setAllMovies((prev) => [saved, ...prev]);
     const rows = await movieApi.categories();
     setCategories(rows);
-    setDisplayedCategories(rows);
+    setDisplayedCategories(filterCategoryParts(rows));
     return saved.id;
   };
 
@@ -244,7 +277,7 @@ function App() {
     setAllMovies((prev) => prev.map((m) => (m.id === saved.id ? saved : m)));
     const rows = await api.fetchCategories();
     setCategories(rows);
-    setDisplayedCategories(rows);
+    setDisplayedCategories(filterCategoryParts(rows));
   };
 
   const handleDeleteMovie = async (id: number) => {
@@ -252,7 +285,7 @@ function App() {
     setAllMovies((prev) => prev.filter((m) => m.id !== id));
     const rows = await api.fetchCategories();
     setCategories(rows);
-    setDisplayedCategories(rows);
+    setDisplayedCategories(filterCategoryParts(rows));
   };
 
   const handleToggleWishlist = async (movie: Movie) => {
@@ -316,7 +349,7 @@ function App() {
           activeTab={activeTab}
           onTabChange={(tab) => {
             if (tab === 'admin') {
-              if (user?.isAdmin) navigate('/admin');
+              if (user?.isAdmin) navigate('/admin/movie');
               return;
             }
             if (tab === 'profile') {
@@ -345,7 +378,7 @@ function App() {
         <div className={`flex-1 min-h-0 flex flex-col relative bg-bBlack ${isMovieRoute || isAdminRoute ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           <Routes>
             <Route
-              path="/admin"
+              path="/admin/movie/:tab?"
               element={
                 user?.isAdmin ? (
                   <ShopAdminPage
@@ -359,6 +392,7 @@ function App() {
                     onLogout={handleLogout}
                     onUpdateOrder={handleUpdateOrder}
                     onUpdateMovie={handleUpdateMovie}
+                    onDeleteMovie={handleDeleteMovie}
                   />
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
@@ -370,12 +404,33 @@ function App() {
               }
             />
             <Route
-              path="/admin/add-movie"
+              path="/admin/movie/add-movie"
               element={
                 user?.isAdmin ? (
                   <AddMoviePage
                     user={user}
+                    movies={allMovies}
                     onAddMovie={handleAddMovie}
+                  />
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                    <h1 className="text-xl font-bold text-white mb-2">Admin access required</h1>
+                    <p className="text-bTextSecondary text-sm mb-6">Sign in with an admin account to access this page.</p>
+                    <button onClick={openAuth} className="bg-bYellow text-black px-5 py-2 rounded-[4px] font-bold text-sm">Sign In</button>
+                  </div>
+                )
+              }
+            />
+            <Route
+              path="/admin/movie/edit-movie/:id"
+              element={
+                user?.isAdmin ? (
+                  <EditMoviePage
+                    user={user}
+                    movies={allMovies}
+                    onAddMovie={handleAddMovie}
+                    onUpdateMovie={handleUpdateMovie}
+                    onDeleteMovie={handleDeleteMovie}
                   />
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
@@ -414,7 +469,7 @@ function App() {
               <div className="animate-fade-in flex-1 flex flex-col">
                 <Hero
                   movie={activeHeroMovie}
-                  movies={(displayedCategories.find((c) => c.id === 'recent')?.movies || allMovies).slice(0, 5)}
+                  movies={(displayedCategories.find((c) => c.id === 'recent')?.movies || displayMovies).slice(0, 5)}
                   onPlay={handlePlayMovie}
                   onMoreInfo={handleMovieSelect}
                 />
@@ -452,7 +507,7 @@ function App() {
                       {category.id === 'seasons' && (
                         <NarratorRow
                           onSelect={(name) => {
-                            setFilteredMoviesGrid(allMovies.filter((m) => m.region === name));
+                            setFilteredMoviesGrid(displayMovies.filter((m) => m.region === name));
                             setActiveTab('movies');
                             navigate('/movies');
                           }}
@@ -501,7 +556,7 @@ function App() {
                 onOpenAuth={openAuth}
                 onSubscribeVIP={handleSubscribeVIP}
                 rentedMovies={rentedMovies}
-                onOpenAdmin={() => navigate('/admin')}
+                onOpenAdmin={() => navigate('/admin/movie')}
               />
             )}
 

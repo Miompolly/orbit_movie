@@ -7,6 +7,7 @@ import wishlistRoutes from './wishlistRoutes.js';
 import cartRoutes from './cartRoutes.js';
 import uploadRoutes from './uploadRoutes.js';
 import proxyRoutes from './proxyRoutes.js';
+import contactRoutes from './contactRoutes.js';
 import { ADMIN_SEED, RWANDA_DISTRICTS, SELLER_PAYMENTS } from '../config/constants.js';
 import { readDb } from '../models/Store.js';
 import { getPublicUrl } from '../config/publicUrl.js';
@@ -69,6 +70,7 @@ router.use('/wishlist', wishlistRoutes);
 router.use('/cart', cartRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/proxy', proxyRoutes);
+router.use('/contact', contactRoutes);
 
 router.get('/comments', (_req, res) => {
   const db = readDb();

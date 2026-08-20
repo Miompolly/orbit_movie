@@ -35,18 +35,21 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const movie = movies.find((m) => String(m.id) === String(id));
-
-  const [isWatching, setIsWatching] = useState(true);
+  const [isWatching, setIsWatching] = useState(searchParams.get('play') === '1');
   const [showAllParts, setShowAllParts] = useState(false);
   const [activeEpisodeIndex, setActiveEpisodeIndex] = useState(0);
+  const [selectedPartId, setSelectedPartId] = useState<number | null>(null);
   const [mobilePanel, setMobilePanel] = useState<'comments' | 'films'>('comments');
   const [comments, setComments] = useState<Comment[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const selectedPart = selectedPartId ? movies.find((m) => m.id === selectedPartId) : null;
+  const currentMovie = selectedPart || movie;
+
   const episodes = movie?.episodes && movie.episodes.length > 0 ? movie.episodes : [];
   const isSeries = movie?.type === 'series' || episodes.length > 0;
-  const rawVideoUrl = movie?.videoUrl || movie?.trailerUrl || '';
+  const rawVideoUrl = currentMovie?.videoUrl || currentMovie?.trailerUrl || movie?.videoUrl || movie?.trailerUrl || '';
   const videoUrl = proxyUrl(rawVideoUrl);
 
   const resumeKey = (movieId: number | string, epIndex: number) => `resume-${movieId}-${epIndex}`;
@@ -88,6 +91,7 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
   useEffect(() => {
     window.scrollTo(0, 0);
     setShowAllParts(false);
+    setSelectedPartId(null);
     if (!movie) return;
     const urlEp = searchParams.get('ep');
     if (isSeries && episodes.length > 0) {
@@ -150,7 +154,9 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
   }, [movie]);
 
   useEffect(() => {
-    videoRef.current?.play().catch(() => {});
+    if (searchParams.get('play') === '1') {
+      videoRef.current?.play().catch(() => {});
+    }
   }, [movie?.id, isSeries, activeEpisodeIndex]);
 
   if (!movie) {
@@ -173,14 +179,57 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
     requestAnimationFrame(() => { videoRef.current?.play().catch(() => {}); });
   };
 
-  const canPrevPart = isSeries ? activeEpisodeIndex > 0 : false;
-  const canNextPart = isSeries ? activeEpisodeIndex < episodes.length - 1 : false;
+  const META_TAGS = ['series', 'tv show', 'cinema', 'easter stream', 'izisobanuye'];
+  const matchesGenre = (film: Movie, genre: string) => {
+    const target = genre.toLowerCase();
+    return film.genre?.some((g) => {
+      const name = g.toLowerCase();
+      if (target === 'romantic' || target === 'romance') return name === 'romantic' || name === 'romance';
+      if (target === 'sci-fi' || target === 'scifi') return name === 'sci-fi' || name === 'scifi';
+      return name === target;
+    });
+  };
+  const primaryGenre = movie.genre?.find((g) => !META_TAGS.includes(g.toLowerCase())) || movie.genre?.[0];
+
+  const sameFranchise = movie.franchise
+    ? movies.filter((m) => m.franchise === movie.franchise && m.part).sort((a, b) => (a.part || 0) - (b.part || 0))
+    : [];
+  const hasFranchise = sameFranchise.length > 1;
+  const franchiseIdx = hasFranchise ? sameFranchise.findIndex((m) => m.id === movie.id) : -1;
+  const prevFranchiseMovie = franchiseIdx > 0 ? sameFranchise[franchiseIdx - 1] : null;
+  const nextFranchiseMovie = franchiseIdx >= 0 && franchiseIdx < sameFranchise.length - 1 ? sameFranchise[franchiseIdx + 1] : null;
+
+  const sameGenreAll = movies.filter((m) => matchesGenre(m, primaryGenre) && (!m.franchise || m.part === 1 || !m.part));
+  const moreFilms = sameGenreAll.filter((m) => m.id !== movie.id);
+
+  const prevGenreMovie = !hasFranchise ? (() => {
+    const idx = sameGenreAll.findIndex((m) => m.id === movie.id);
+    return idx > 0 ? sameGenreAll[idx - 1] : null;
+  })() : null;
+  const nextGenreMovie = !hasFranchise ? (() => {
+    const idx = sameGenreAll.findIndex((m) => m.id === movie.id);
+    return idx >= 0 && idx < sameGenreAll.length - 1 ? sameGenreAll[idx + 1] : null;
+  })() : null;
+
+  const prevMovie = hasFranchise ? prevFranchiseMovie : prevGenreMovie;
+  const nextMovie = hasFranchise ? nextFranchiseMovie : nextGenreMovie;
+
+  const canPrevPart = isSeries ? activeEpisodeIndex > 0 : !!prevMovie;
+  const canNextPart = isSeries ? activeEpisodeIndex < episodes.length - 1 : !!nextMovie;
 
   const goPrevious = () => {
-    if (isSeries && canPrevPart) handleSelectPart(activeEpisodeIndex - 1);
+    if (isSeries && canPrevPart) {
+      handleSelectPart(activeEpisodeIndex - 1);
+    } else if (prevMovie) {
+      navigate(`/movie/${prevMovie.id}`);
+    }
   };
   const goNext = () => {
-    if (isSeries && canNextPart) handleSelectPart(activeEpisodeIndex + 1);
+    if (isSeries && canNextPart) {
+      handleSelectPart(activeEpisodeIndex + 1);
+    } else if (nextMovie) {
+      navigate(`/movie/${nextMovie.id}`);
+    }
   };
   const prevDisabled = !canPrevPart;
   const nextDisabled = !canNextPart;
@@ -208,18 +257,6 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
     setComments((prev) => prev.map((item) => (item.id === saved.id ? saved : item)));
   };
 
-  const META_TAGS = ['series', 'tv show', 'cinema', 'easter stream', 'izisobanuye'];
-  const matchesGenre = (film: Movie, genre: string) => {
-    const target = genre.toLowerCase();
-    return film.genre?.some((g) => {
-      const name = g.toLowerCase();
-      if (target === 'romantic' || target === 'romance') return name === 'romantic' || name === 'romance';
-      if (target === 'sci-fi' || target === 'scifi') return name === 'sci-fi' || name === 'scifi';
-      return name === target;
-    });
-  };
-  const primaryGenre = movie.genre?.find((g) => !META_TAGS.includes(g.toLowerCase())) || movie.genre?.[0];
-  const moreFilms = movies.filter((m) => m.id !== movie.id && matchesGenre(m, primaryGenre));
   const partsMeta = isSeries
     ? `${episodes.length} ${episodes.length === 1 ? 'Episode' : 'Episodes'}`
     : movie.duration;
@@ -391,24 +428,12 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
           <div className="mt-4 shrink-0">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2.5">
-                <button type="button" onClick={goPrevious} disabled={prevDisabled}
-                  className="w-9 h-9 flex items-center justify-center rounded-[4px] shrink-0 bg-white/10 text-white hover:bg-white/15 disabled:opacity-35 disabled:hover:bg-white/10">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
                 <button onClick={handlePlayOnPage}
                   className="flex items-center gap-2 bg-bYellow text-black px-5 py-2 rounded-[4px] text-sm font-bold hover:bg-bYellowHover shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
                   </svg>
                   Play
-                </button>
-                <button type="button" onClick={goNext} disabled={nextDisabled}
-                  className="w-9 h-9 flex items-center justify-center rounded-[4px] shrink-0 bg-white/10 text-white hover:bg-white/15 disabled:opacity-35 disabled:hover:bg-white/10">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
                 </button>
                 {isSeries && (
                   <button type="button"
@@ -430,7 +455,32 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
                 <span>{partsMeta}</span>
               </p>
             </div>
-            <h1 className="mt-3 text-lg md:text-2xl font-bold text-white tracking-tight truncate">{movie.title}</h1>
+            <h1 className="mt-3 text-lg md:text-2xl font-bold text-white tracking-tight truncate">{selectedPart ? (selectedPart.franchise && selectedPart.part ? selectedPart.title.replace(/\s*-\s*Part\s*\d+$/i, '').trim() : selectedPart.title) : (movie.franchise && movie.part ? movie.title.replace(/\s*-\s*Part\s*\d+$/i, '').trim() : movie.title)}</h1>
+            {hasFranchise && sameFranchise.length > 1 && (
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                {sameFranchise.map((partMovie, idx) => {
+                  const isActive = selectedPartId ? partMovie.id === selectedPartId : partMovie.id === movie.id;
+                  return (
+                    <button
+                      key={partMovie.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPartId(partMovie.id);
+                        setIsWatching(true);
+                        setActiveEpisodeIndex(0);
+                      }}
+                      className={`px-3 py-1.5 rounded-[4px] text-xs font-bold transition-colors ${
+                        isActive
+                          ? 'bg-bYellow text-black'
+                          : 'bg-white/10 text-white hover:bg-white/15'
+                      }`}
+                    >
+                      Part {partMovie.part || idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="lg:hidden flex shrink-0 gap-0 mt-4 border-b border-white/10">

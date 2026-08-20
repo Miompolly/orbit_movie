@@ -4,6 +4,7 @@ import { User } from '../types';
 
 interface NavbarProps {
   onSearch: (query: string, category: string) => void;
+  onSearchChange?: (query: string, category: string) => void;
   user: User | null;
   onOpenAuth: () => void;
   onLogout: () => void;
@@ -40,6 +41,7 @@ const GENRE_FILTERS = ['All', 'Action', 'Romance', 'Horror', 'Indian', 'Cartoon'
 
 const Navbar: React.FC<NavbarProps> = ({
   onSearch,
+  onSearchChange,
   user,
   onOpenAuth,
   onLogout,
@@ -57,6 +59,14 @@ const Navbar: React.FC<NavbarProps> = ({
   const [searchCategory, setSearchCategory] = useState('All Genres');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+
+  useEffect(() => {
+    if (!onSearchChange) return;
+    const timer = setTimeout(() => {
+      onSearchChange(searchTerm, searchCategory);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, searchCategory]);
 
   useEffect(() => {
     if (!showMobileFilters) return;
@@ -205,10 +215,16 @@ const Navbar: React.FC<NavbarProps> = ({
       {user ? (
         <div className="relative">
           <div
-            className="w-7 h-7 rounded-full bg-gradient-to-tr from-bYellow to-bYellowHover text-black font-bold flex items-center justify-center cursor-pointer border border-transparent hover:border-white transition-all shadow-lg sm:w-8 sm:h-8"
+            className="flex items-center gap-2 cursor-pointer px-2 py-1 rounded hover:bg-bGray/50 transition-colors"
             onClick={() => setShowUserMenu(!showUserMenu)}
           >
-            {user.name.charAt(0).toUpperCase()}
+            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-bYellow to-bYellowHover text-black font-bold flex items-center justify-center border border-transparent hover:border-white transition-all shadow-lg sm:w-8 sm:h-8">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="hidden md:block">
+              <div className="text-xs font-bold text-white leading-tight truncate max-w-[120px]">{user.name}</div>
+              <div className="text-[10px] text-bTextSecondary leading-tight truncate max-w-[120px]">{user.email}</div>
+            </div>
           </div>
           {userMenu}
         </div>

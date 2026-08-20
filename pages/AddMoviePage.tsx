@@ -5,6 +5,7 @@ import { api as movieApi } from '../services/shopApi';
 
 interface AddMoviePageProps {
   user: any;
+  movies: any[];
   onAddMovie: (movie: any) => Promise<number>;
 }
 
@@ -28,7 +29,7 @@ interface Episode {
   uploading: boolean;
 }
 
-const AddMoviePage: React.FC<AddMoviePageProps> = ({ user, onAddMovie }) => {
+const AddMoviePage: React.FC<AddMoviePageProps> = ({ user, movies, onAddMovie }) => {
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -55,12 +56,56 @@ const AddMoviePage: React.FC<AddMoviePageProps> = ({ user, onAddMovie }) => {
     runtime: '',
     type: 'movie' as 'movie' | 'series',
     totalSeasons: '1',
-    episodes: '1'
+    episodes: '1',
+    franchise: '',
+    part: ''
   });
 
   const [episodes, setEpisodes] = useState<Episode[]>([
     { title: '', season: 1, episode: 1, videoUrl: '', overview: '', uploading: false }
   ]);
+
+  interface Part {
+    title: string;
+    part: number;
+    videoUrl: string;
+    overview: string;
+    uploading: boolean;
+  }
+
+  const [parts, setParts] = useState<Part[]>([]);
+
+  const addPart = () => {
+    setParts(prev => [...prev, {
+      title: '',
+      part: prev.length + 1,
+      videoUrl: '',
+      overview: '',
+      uploading: false
+    }]);
+  };
+
+  const removePart = (index: number) => {
+    if (parts.length <= 1) return;
+    setParts(prev => prev.filter((_, i) => i !== index).map((p, i) => ({ ...p, part: i + 1 })));
+  };
+
+  const updatePart = (index: number, field: keyof Part, value: string | number) => {
+    setParts(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p));
+  };
+
+  const handleUploadPartVideo = async (file: File, partIndex: number) => {
+    setParts(prev => prev.map((p, i) => i === partIndex ? { ...p, uploading: true } : p));
+    try {
+      const result = await movieApi.uploadVideo(file);
+      setParts(prev => prev.map((p, i) => i === partIndex ? { ...p, videoUrl: result.url, uploading: false } : p));
+    } catch (err: any) {
+      setParts(prev => prev.map((p, i) => i === partIndex ? { ...p, uploading: false } : p));
+      setError(err?.message || 'Video upload failed.');
+    }
+  };
+
+  const partInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   if (!user?.isAdmin) {
     return (
@@ -74,6 +119,32 @@ const AddMoviePage: React.FC<AddMoviePageProps> = ({ user, onAddMovie }) => {
   }
 
   const update = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const handleFranchiseChange = (value: string) => {
+    update('franchise', value);
+    if (value.trim()) {
+      const existing = movies
+        .filter((m: any) => m.franchise?.toLowerCase() === value.trim().toLowerCase() && m.part)
+        .sort((a: any, b: any) => (b.part || 0) - (a.part || 0));
+      if (existing.length > 0) {
+        const last = existing[0];
+        setForm(prev => ({
+          ...prev,
+          franchise: value,
+          category: prev.category || last.genre?.[0] || 'Action',
+        }));
+        if (parts.length === 0) {
+          setParts([{ title: '', part: 1, videoUrl: '', overview: '', uploading: false }]);
+        }
+      } else {
+        if (parts.length === 0) {
+          setParts([{ title: '', part: 1, videoUrl: '', overview: '', uploading: false }]);
+        }
+      }
+    } else {
+      setParts([]);
+    }
+  };
 
   const updateEpisode = (index: number, field: keyof Episode, value: string | number) => {
     setEpisodes(prev => prev.map((ep, i) => i === index ? { ...ep, [field]: value } : ep));
@@ -170,14 +241,26 @@ const AddMoviePage: React.FC<AddMoviePageProps> = ({ user, onAddMovie }) => {
         vote_count: 0,
         type: form.type,
         totalSeasons: form.type === 'series' ? parseInt(form.totalSeasons) || 1 : undefined,
-        episodes_data: form.type === 'series' ? episodes : undefined
+        episodes_data: form.type === 'series' ? episodes : undefined,
+        franchise: form.franchise || undefined,
+        part: form.franchise ? 1 : undefined,
       };
-      const newId = await onAddMovie(movie);
-      if (form.type === 'series') {
-        navigate('/admin');
+      if (form.franchise && parts.length > 0) {
+        for (const pt of parts) {
+          const partMovie: any = {
+            ...movie,
+            id: Date.now() + pt.part,
+            title: pt.title || `${form.title.trim()} - Part ${pt.part}`,
+            part: pt.part,
+            videoUrl: pt.videoUrl || '',
+            description: pt.overview || form.overview.trim(),
+          };
+          await onAddMovie(partMovie);
+        }
       } else {
-        navigate(`/movie/${newId}`);
+        await onAddMovie(movie);
       }
+      navigate('/admin/movie/movies');
     } catch (err: any) {
       setError(err?.message || 'Failed to add movie.');
     } finally {
@@ -211,7 +294,7 @@ const AddMoviePage: React.FC<AddMoviePageProps> = ({ user, onAddMovie }) => {
           {sidebarTabs.map(item => (
             <button
               key={item.id}
-              onClick={() => navigate('/admin')}
+              onClick={() => navigate(`/admin/movie/${item.id}`)}
               className={`flex items-center gap-3 px-4 py-3.5 border-l-4 transition-all hover:bg-bGray/10 ${item.id === 'movies' ? 'border-bYellow text-bYellow bg-bGray/10' : 'border-transparent text-bTextSecondary hover:text-white'} ${sidebarCollapsed ? 'justify-center px-2' : ''}`}
               title={item.label}
             >
@@ -255,7 +338,7 @@ const AddMoviePage: React.FC<AddMoviePageProps> = ({ user, onAddMovie }) => {
             </div>
 
             <button
-              onClick={() => navigate('/admin')}
+              onClick={() => navigate('/admin/movie')}
               className="group bg-bGray/20 hover:bg-bRed/20 text-bTextSecondary hover:text-bRed px-3 py-2 rounded-lg flex items-center gap-2 transition-all border border-transparent hover:border-bRed/30"
             >
               <span className="text-xs font-medium hidden sm:inline">Exit</span>
@@ -337,6 +420,19 @@ const AddMoviePage: React.FC<AddMoviePageProps> = ({ user, onAddMovie }) => {
                     className="w-full bg-bBlack border border-bGray rounded-lg px-4 py-3 text-white placeholder-bTextSecondary focus:border-bYellow/50 focus:outline-none" />
                 </div>
 
+                {form.type !== 'series' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold text-bTextSecondary uppercase tracking-wider mb-2">Franchise (optional)</label>
+                      <input type="text" value={form.franchise} onChange={e => handleFranchiseChange(e.target.value)} placeholder="e.g. Fast Furious"
+                        className="w-full bg-bBlack border border-bGray rounded-lg px-4 py-3 text-white placeholder-bTextSecondary focus:border-bYellow/50 focus:outline-none" />
+                      {form.franchise && (
+                        <p className="text-[10px] text-bTextSecondary mt-1">Leave empty if this is a standalone movie</p>
+                      )}
+                    </div>
+                  </>
+                )}
+
                 {form.type === 'series' && (
                   <>
                     <div>
@@ -349,7 +445,68 @@ const AddMoviePage: React.FC<AddMoviePageProps> = ({ user, onAddMovie }) => {
               </div>
             </div>
 
-            {form.type !== 'series' && (
+            {form.type !== 'series' && form.franchise && (
+            <div className="bg-bDark border border-bGray rounded-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-sm font-bold text-bTextSecondary uppercase tracking-wider">Parts</h3>
+                  <p className="text-xs text-bTextSecondary mt-1">Add each part of "{form.franchise}" with its own video</p>
+                </div>
+                <button type="button" onClick={addPart}
+                  className="bg-bYellow text-black px-3 py-1.5 rounded text-xs font-bold hover:bg-bYellowHover flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                  Add Part
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {parts.map((pt, idx) => (
+                  <div key={idx} className={`border rounded-lg overflow-hidden transition-all ${pt.videoUrl ? 'border-bGreen/40 bg-bBlack/60' : 'border-bGray bg-bBlack'}`}>
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${pt.videoUrl ? 'bg-bGreen text-white' : pt.uploading ? 'bg-bYellow/20 text-bYellow animate-pulse' : 'bg-bGray/30 text-bTextSecondary'}`}>
+                        {pt.uploading ? '⏳' : pt.videoUrl ? '✓' : `P${idx + 1}`}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <input type="text" value={pt.title} onChange={e => updatePart(idx, 'title', e.target.value)} placeholder={`Part ${idx + 1} title`}
+                          className="w-full bg-transparent text-sm text-white placeholder-bTextSecondary focus:outline-none" />
+                      </div>
+                      <span className="text-xs text-bTextSecondary font-bold shrink-0">Part {idx + 1}</span>
+                      {parts.length > 1 && (
+                        <button type="button" onClick={() => removePart(idx)} className="text-bTextSecondary hover:text-bRed text-xs shrink-0" title="Remove part">✕</button>
+                      )}
+                    </div>
+                    <div className="border-t border-bGray/50 px-4 py-3 bg-bDark/30">
+                      {pt.videoUrl ? (
+                        <div className="flex items-center gap-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-bGreen shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                          <span className="text-xs text-bGreen truncate flex-1">{pt.videoUrl}</span>
+                          <button type="button" onClick={() => updatePart(idx, 'videoUrl', '')} className="text-bTextSecondary hover:text-bRed text-xs">Remove</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <input ref={el => { partInputRefs.current[idx] = el; }} type="file" accept="video/*"
+                            style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+                            onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadPartVideo(f, idx); e.target.value = ''; }} />
+                          <button type="button" onClick={() => partInputRefs.current[idx]?.click()} disabled={pt.uploading}
+                            className="flex items-center gap-2 border border-dashed border-bGray hover:border-bYellow/50 rounded px-3 py-2 text-xs text-bTextSecondary hover:text-bYellow transition-colors disabled:opacity-50 flex-1">
+                            {pt.uploading ? (
+                              <><span className="animate-spin">⏳</span> Uploading video...</>
+                            ) : (
+                              <><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg> Upload video</>
+                            )}
+                          </button>
+                          <input type="text" value={pt.overview} onChange={e => updatePart(idx, 'overview', e.target.value)} placeholder="Description (optional)"
+                            className="flex-1 bg-bBlack border border-bGray rounded px-2 py-1 text-xs text-white placeholder-bTextSecondary focus:border-bYellow/50 focus:outline-none" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            )}
+
+            {form.type !== 'series' && !form.franchise && (
             <div className="bg-bDark border border-bGray rounded-lg p-6">
               <h3 className="text-sm font-bold text-bTextSecondary uppercase tracking-wider mb-4">Video</h3>
               <div className="space-y-4">
@@ -533,7 +690,7 @@ const AddMoviePage: React.FC<AddMoviePageProps> = ({ user, onAddMovie }) => {
                   <><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg> Add {form.type === 'series' ? 'Series' : 'Movie'}</>
                 )}
               </button>
-              <button type="button" onClick={() => navigate('/admin')} className="bg-bGray text-white px-6 py-3 rounded-lg hover:bg-bGray/80 transition-colors">Cancel</button>
+              <button type="button" onClick={() => navigate('/admin/movie')} className="bg-bGray text-white px-6 py-3 rounded-lg hover:bg-bGray/80 transition-colors">Cancel</button>
             </div>
           </form>
         </div>
