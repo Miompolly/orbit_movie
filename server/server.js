@@ -15,7 +15,7 @@ async function start() {
     await UserModel.ensureAdmin();
     console.log('PostgreSQL ready');
   } catch (err) {
-    console.error('Database migration failed:', err.message);
+    console.error('Database migration failed:', err);
     process.exit(1);
   }
 
