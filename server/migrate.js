@@ -1,4 +1,4 @@
-import { query } from '../db.js';
+import { query } from './db.js';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
