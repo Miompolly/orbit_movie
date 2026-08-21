@@ -1,3 +1,1 @@
-interface Window {
-  gtag?: (...args: unknown[]) => void;
-}
+/// <reference types="vite/client" />

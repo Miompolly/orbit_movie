@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Movie } from '../types';
+import { ga } from '../services/ga';
 
 interface MovieCardProps {
   movie: Movie;
@@ -39,17 +40,19 @@ const MovieCard: React.FC<MovieCardProps> = ({ movie, onSelect, className = '', 
     setShowMenu(false);
     const url = `${window.location.origin}/movie/${movie.id}`;
     navigator.clipboard.writeText(url).catch(() => {});
+    ga.share(movie.id);
   };
 
   const handleWishlist = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowMenu(false);
+    ga.addToWishlist({ id: movie.id, title: displayTitle });
     onSelect(movie);
   };
 
   return (
     <article
-      onClick={() => onSelect(movie)}
+      onClick={() => { ga.movieSelect({ id: movie.id, title: displayTitle }); onSelect(movie); }}
       className={`group cursor-pointer overflow-hidden rounded-[4px] bg-[#101216] ${className}`}
     >
       <div className="relative aspect-video overflow-hidden bg-black">

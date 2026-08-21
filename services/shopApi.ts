@@ -1,5 +1,6 @@
 import { Comment, Movie, Product, ShopOrder, User } from '../types';
 import { request, setToken, guestId } from './apiClient';
+import { ga } from './ga';
 
 export const api = {
   // Auth
@@ -39,7 +40,11 @@ export const api = {
   // Orders (admin)
   orders: () => request<ShopOrder[]>('/orders'),
   order: (id: string) => request<ShopOrder>(`/orders/${id}`),
-  placeOrder: (draft: any) => request<ShopOrder>('/orders', { method: 'POST', body: JSON.stringify(draft) }),
+  placeOrder: async (draft: any) => {
+    const order = await request<ShopOrder>('/orders', { method: 'POST', body: JSON.stringify(draft) });
+    ga.purchase(order.id, order.total, order.items.map((i) => ({ id: i.productId, name: i.name, price: i.price, qty: i.qty })));
+    return order;
+  },
   updateOrder: (id: string, patch: Partial<ShopOrder>) =>
     request<ShopOrder>(`/orders/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
 
@@ -101,6 +106,9 @@ export const api = {
   },
 
   // Contact
-  sendContact: (payload: { name: string; email: string; message: string }) =>
-    request<{ ok: boolean }>('/contact', { method: 'POST', body: JSON.stringify(payload) }),
+  sendContact: async (payload: { name: string; email: string; message: string }) => {
+    const result = await request<{ ok: boolean }>('/contact', { method: 'POST', body: JSON.stringify(payload) });
+    ga.event('contact_submit', { name: payload.name });
+    return result;
+  },
 };

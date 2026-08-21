@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
+import { ga } from './services/ga';
 import MovieRow from './components/MovieRow';
 import AuthPage from './pages/AuthPage';
 import Footer from './components/Footer';
@@ -216,6 +217,7 @@ function App() {
       results = results.filter(m => catFilter.some(cm => cm.id === m.id));
       if (!query) results = catFilter;
     }
+    ga.search(query, results.length);
     setActiveTab('movies');
     navigate('/movies');
     setFilteredMoviesGrid(byTrack(results, activeTrack));
@@ -241,6 +243,7 @@ function App() {
           const cat = category === 'Romantic' ? 'Romance' : category;
           filtered = results.filter(m => m.genre?.some(g => g.toLowerCase() === cat.toLowerCase()));
         }
+        ga.search(query, filtered.length);
         setActiveTab('movies');
         if (location.pathname !== '/movies') navigate('/movies');
         setFilteredMoviesGrid(byTrack(filtered, activeTrack));
@@ -252,10 +255,12 @@ function App() {
   }, [navigate, activeTrack, location.pathname]);
 
   const handleMovieSelect = (movie: Movie) => {
+    ga.movieSelect({ id: movie.id, title: movie.title });
     navigate(`/movie/${movie.id}`);
   };
 
   const handlePlayMovie = (movie: Movie) => {
+    ga.moviePlay({ id: movie.id, title: movie.title });
     navigate(`/movie/${movie.id}?play=1`);
   };
 
@@ -297,10 +302,12 @@ function App() {
   const handleToggleWishlist = async (movie: Movie) => {
     if (!user) {
       const exists = wishlist.find((item) => item.id === movie.id);
+      exists ? ga.removeFromWishlist(movie) : ga.addToWishlist(movie);
       setWishlist(exists ? wishlist.filter((item) => item.id !== movie.id) : [...wishlist, movie]);
       return;
     }
     const exists = wishlist.find((item) => item.id === movie.id);
+    exists ? ga.removeFromWishlist(movie) : ga.addToWishlist(movie);
     const list = exists ? await movieApi.removeWishlist(movie.id) : await movieApi.addWishlist(movie);
     setWishlist(list);
   };
@@ -326,6 +333,7 @@ function App() {
   };
 
   const handleLogout = () => {
+    ga.event('logout');
     setUser(null);
     setToken(null);
     setWishlist([]);
@@ -373,9 +381,9 @@ function App() {
             navigate('/watchlist');
           }}
           activeTrack={activeTrack}
-          onTrackChange={setActiveTrack}
+          onTrackChange={(track) => { ga.trackBy(track); setActiveTrack(track); }}
           activeFilter={activeFilter}
-          onFilterChange={setActiveFilter}
+          onFilterChange={(filter) => { ga.filterBy(filter); setActiveFilter(filter); }}
           showFilters={activeTab === 'home' || activeTab === 'movies' || activeTab === 'series' || activeTab === 'music'}
         />
       )}

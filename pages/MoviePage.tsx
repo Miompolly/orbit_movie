@@ -4,6 +4,7 @@ import { Movie, Comment, User } from '../types';
 import MovieCard from '../components/MovieCard';
 import CommentThread from '../components/CommentThread';
 import { api as movieApi } from '../services/shopApi';
+import { ga } from '../services/ga';
 
 interface MoviePageProps {
   movies: Movie[];
@@ -116,6 +117,7 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
 
   useEffect(() => {
     if (!movie) return;
+    ga.movieView({ id: movie.id, title: movie.title, genre: movie.genre });
     const title = `${movie.title} (${movie.year}) - Orbit Movie`;
     const desc = movie.description || movie.overview || `Watch ${movie.title} on Orbit Movie with Kinyarwanda narration or original audio.`;
     const img = movie.backdropUrl || movie.imageUrl;
@@ -175,6 +177,7 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
 
   const handleSelectPart = (index: number) => {
     setActiveEpisodeIndex(index);
+    ga.moviePlay({ id: movie.id, title: movie.title });
     navigate(`/movie/${movie.id}?play=1&ep=${index}`, { replace: true });
     requestAnimationFrame(() => { videoRef.current?.play().catch(() => {}); });
   };
@@ -235,6 +238,7 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
   const nextDisabled = !canNextPart;
 
   const handlePlayOnPage = () => {
+    ga.moviePlay({ id: movie.id, title: movie.title });
     if (isSeries) {
       handleSelectPart(activeEpisodeIndex);
     } else {
@@ -245,6 +249,7 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
   };
 
   const handlePostComment = async (text: string, parentId?: string) => {
+    ga.comment(movie.id);
     const saved = await movieApi.postMovieComment(movie.id, text, parentId);
     setComments((prev) => [saved, ...prev]);
   };
@@ -325,7 +330,7 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
   const filmsBlock = (
     <div className="grid grid-cols-2 gap-3 pb-4">
       {moreFilms.map((film) => (
-        <MovieCard key={film.id} movie={film} onSelect={(m) => navigate(`/movie/${m.id}`)} />
+        <MovieCard key={film.id} movie={film} onSelect={(m) => { ga.movieSelect({ id: m.id, title: m.title }); navigate(`/movie/${m.id}`); }} />
       ))}
     </div>
   );
@@ -437,6 +442,7 @@ const MoviePage: React.FC<MoviePageProps> = ({ movies, user = null }) => {
                       key={partMovie.id}
                       type="button"
                       onClick={() => {
+                        ga.movieSelect({ id: partMovie.id, title: partMovie.title });
                         setSelectedPartId(partMovie.id);
                         setIsWatching(true);
                         setActiveEpisodeIndex(0);

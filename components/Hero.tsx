@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Movie } from '../types';
+import { ga } from '../services/ga';
 
 interface HeroProps {
   movie: Movie | undefined;
@@ -92,7 +93,7 @@ const Hero: React.FC<HeroProps> = ({ movie, movies = [], onPlay, onMoreInfo }) =
 
           <div className="flex flex-wrap items-center gap-3 mt-1">
             <button
-              onClick={() => onPlay(current)}
+              onClick={() => { ga.moviePlay({ id: current.id, title: current.title }); onPlay(current); }}
               className="flex items-center gap-2 bg-bYellow text-black px-6 py-2.5 rounded-[4px] text-sm font-bold hover:bg-bYellowHover transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -102,7 +103,7 @@ const Hero: React.FC<HeroProps> = ({ movie, movies = [], onPlay, onMoreInfo }) =
             </button>
 
             <button
-              onClick={() => onMoreInfo(current)}
+              onClick={() => { ga.movieSelect({ id: current.id, title: current.title }); onMoreInfo(current); }}
               className="flex items-center gap-2 bg-black/50 backdrop-blur-sm text-white px-6 py-2.5 rounded-[4px] text-sm font-medium hover:bg-black/70 transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

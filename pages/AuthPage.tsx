@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { User } from '../types';
 import { api as movieApi } from '../services/shopApi';
+import { ga } from '../services/ga';
 
 interface AuthPageProps {
   onLogin: (user: User) => void | Promise<void>;
@@ -35,6 +36,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLogin }) => {
       const user = isLogin
         ? await movieApi.login(email, password)
         : await movieApi.register(name, email, password);
+      isLogin ? ga.login() : ga.register();
       await onLogin(user);
       goAfterAuth(user);
     } catch (err) {
