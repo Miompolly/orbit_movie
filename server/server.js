@@ -1,7 +1,4 @@
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '.env') });
+import './config/env.js';
 
 const { default: app } = await import('./app.js');
 import { PORT } from './config/constants.js';

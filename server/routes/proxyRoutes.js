@@ -9,11 +9,33 @@ const router = Router();
 const ALLOWED_HOSTS = [
   'commondatastorage.googleapis.com',
   'storage.googleapis.com',
+  'firebasestorage.googleapis.com',
   'image.tmdb.org',
   'www.youtube.com',
   'i.ytimg.com',
+  'youtube.com',
+  'youtu.be',
   'vimeo.com',
+  'cloudinary.com',
+  'amazonaws.com',
+  'cloudfront.net',
+  'blob.core.windows.net',
+  'digitaloceanspaces.com',
+  'backblazeb2.com',
+  'b-cdn.net',
+  'mux.com',
+  'wasabisys.com',
+  'supabase.co',
+  'dl.dropboxusercontent.com',
 ];
+
+const envHosts = (process.env.PROXY_ALLOWED_HOSTS || '')
+  .split(',')
+  .map((h) => h.trim().toLowerCase())
+  .filter(Boolean);
+envHosts.forEach((h) => {
+  if (!ALLOWED_HOSTS.includes(h)) ALLOWED_HOSTS.push(h);
+});
 
 function isLocalUrl(url) {
   if (!url) return false;
