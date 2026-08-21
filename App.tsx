@@ -59,6 +59,12 @@ function App() {
   };
 
   useEffect(() => {
+    if (typeof window.gtag === 'function') {
+      window.gtag('config', 'G-GHVJKRX5PY', { page_path: location.pathname + location.search });
+    }
+  }, [location]);
+
+  useEffect(() => {
     const path = location.pathname;
     if (path === '/' || path === '') {
       setActiveTab('home');
